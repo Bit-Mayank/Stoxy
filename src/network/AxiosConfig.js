@@ -21,14 +21,16 @@ class ApiClient {
     }
 
     async get(params = {}, config = {}) {
-        // const apiKey = process.env.API_KEY;
-        const apiKey = "demo"
+        const apiKey = process.env.API_KEY;
+        // const apiKey = "demo"
         console.log("APIKEY:", apiKey);
         let finalParams = { ...params, apikey: apiKey };
-        // If using demo key and function is OVERVIEW, force symbol to IBM
-        if (apiKey === 'demo' && finalParams.function === 'OVERVIEW') {
+
+        // If using demo key, force symbol to IBM for all functions that use symbols
+        if (apiKey === 'demo' && finalParams.symbol !== undefined) {
             finalParams.symbol = 'IBM';
         }
+
         const query = this.buildQuery(finalParams);
         const url = `/query?${query}`;
         console.log(url);

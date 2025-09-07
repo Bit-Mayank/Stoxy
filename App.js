@@ -1,9 +1,13 @@
 import React, { useEffect } from 'react';
 import { AppState } from 'react-native';
+import { enableScreens } from 'react-native-screens';
 import Navigator from './src/navigation/Navigator';
 import { UserPreferences } from './src/context/UserPreferences';
 import { WatchlistProvider } from './src/context/WatchlistContext';
 import AppInitializationService from './src/services/AppInitializationService';
+
+// Enable screens for better navigation performance
+enableScreens();
 
 export default function App() {
   useEffect(() => {

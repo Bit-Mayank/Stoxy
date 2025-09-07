@@ -11,6 +11,7 @@ import {
 import { UserPreferencesContext } from '../context/UserPreferences';
 import { useWatchlist } from '../context/WatchlistContext';
 import AddToWatchlistModal from '../components/AddToWatchlistModal';
+import StockChart from '../components/StockChart';
 import stockApiService from '../services/api';
 import BookmarkIcon from '../components/BookmarkIcon';
 
@@ -24,6 +25,8 @@ const StockDetailsScreen = ({ route, navigation }) => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [modalVisible, setModalVisible] = useState(false);
+    const [chartPriceData, setChartPriceData] = useState(null);
+    const [showFullDescription, setShowFullDescription] = useState(false);
 
     useEffect(() => {
         fetchCompanyOverview();
@@ -54,6 +57,30 @@ const StockDetailsScreen = ({ route, navigation }) => {
         setModalVisible(false);
     };
 
+    const handleChartPriceUpdate = (priceData) => {
+        setChartPriceData(priceData);
+    };
+
+    const toggleDescription = () => {
+        setShowFullDescription(!showFullDescription);
+    };
+
+    const getDisplayDescription = () => {
+        const description = companyData?.Description || 'No description available for this company.';
+        const maxLength = 200; // Character limit for truncated description
+
+        if (description.length <= maxLength || showFullDescription) {
+            return description;
+        }
+
+        return description.substring(0, maxLength);
+    };
+
+    const shouldShowReadMore = () => {
+        const description = companyData?.Description || '';
+        return description.length > 200;
+    };
+
     const formatCurrency = (value) => {
         if (!value || value === 'None') return '-';
         const num = parseFloat(value);
@@ -81,6 +108,11 @@ const StockDetailsScreen = ({ route, navigation }) => {
     };
 
     const getCurrentPrice = () => {
+        // Prioritize chart data if available
+        if (chartPriceData && chartPriceData.price) {
+            return chartPriceData.price;
+        }
+
         if (stockData && stockData.price) {
             return parseFloat(stockData.price) || 0;
         }
@@ -92,6 +124,11 @@ const StockDetailsScreen = ({ route, navigation }) => {
     };
 
     const getPriceChange = () => {
+        // Prioritize chart data if available
+        if (chartPriceData && chartPriceData.change !== null) {
+            return chartPriceData.change;
+        }
+
         if (stockData && stockData.change_amount) {
             return parseFloat(stockData.change_amount) || 0;
         }
@@ -100,6 +137,11 @@ const StockDetailsScreen = ({ route, navigation }) => {
     };
 
     const getPriceChangePercent = () => {
+        // Prioritize chart data if available
+        if (chartPriceData && chartPriceData.changePercent !== null) {
+            return chartPriceData.changePercent;
+        }
+
         if (stockData && stockData.change_percentage) {
             const changePercent = stockData.change_percentage;
             if (changePercent) {
@@ -208,12 +250,32 @@ const StockDetailsScreen = ({ route, navigation }) => {
                 }}
             />
 
+            {/* Stock Chart Section */}
+            <StockChart
+                symbol={symbol}
+                onPriceUpdate={handleChartPriceUpdate}
+            />
+
             {/* About Section */}
             <View style={styles.section}>
                 <Text style={styles.sectionTitle}>About {companyData.Symbol}</Text>
-                <Text style={styles.description}>
-                    {companyData.Description || 'No description available for this company.'}
-                </Text>
+                <View style={styles.descriptionContainer}>
+                    <Text style={styles.description}>
+                        {getDisplayDescription()}
+                        {!showFullDescription && shouldShowReadMore() && '...'}
+                    </Text>
+                    {shouldShowReadMore() && (
+                        <TouchableOpacity
+                            style={styles.readMoreButton}
+                            onPress={toggleDescription}
+                            activeOpacity={0.7}
+                        >
+                            <Text style={styles.readMoreText}>
+                                {showFullDescription ? 'Read Less' : 'Read More'}
+                            </Text>
+                        </TouchableOpacity>
+                    )}
+                </View>
 
                 <View style={styles.tagContainer}>
                     {companyData.Industry && (
@@ -362,6 +424,7 @@ const getStyles = (theme) => {
         headerSection: {
             backgroundColor: isDark ? '#1c1c1e' : '#ffffff',
             padding: 24,
+            paddingBottom: 4,
             borderBottomWidth: 1,
             marginBottom: 8,
             borderBottomColor: isDark ? '#2c2c2e' : '#e5e5e7',
@@ -451,8 +514,8 @@ const getStyles = (theme) => {
         },
         priceSection: {
             alignItems: 'center',
-            marginBottom: 24,
-            paddingVertical: 16,
+            marginBottom: 12,
+            paddingVertical: 8,
             backgroundColor: isDark ? '#2c2c2e' : '#f8f9fa',
             borderRadius: 12,
         },
@@ -512,12 +575,27 @@ const getStyles = (theme) => {
             marginBottom: 20,
             letterSpacing: 0.3,
         },
+        descriptionContainer: {
+            marginBottom: 20,
+        },
         description: {
             fontSize: 15,
             lineHeight: 22,
             color: isDark ? '#a0a0a0' : '#666666',
-            marginBottom: 20,
             fontWeight: '400',
+        },
+        readMoreButton: {
+            alignSelf: 'flex-start',
+            marginTop: 8,
+            paddingVertical: 6,
+            paddingHorizontal: 8,
+            borderRadius: 8,
+            backgroundColor: isDark ? '#2c2c2e' : '#f0f0f0',
+        },
+        readMoreText: {
+            fontSize: 14,
+            fontWeight: '600',
+            color: '#007AFF',
         },
         tagContainer: {
             flexDirection: 'row',

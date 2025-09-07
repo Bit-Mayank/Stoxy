@@ -8,6 +8,8 @@ class StockApiService {
         SYMBOL_SEARCH: 'SYMBOL_SEARCH',
         COMPANY_OVERVIEW: 'COMPANY_OVERVIEW',
         TOP_GAINERS_LOSERS: 'TOP_GAINERS_LOSERS',
+        INTRADAY_DATA: 'TIME_SERIES_INTRADAY',
+        DAILY_DATA: 'DAILY_DATA',
     };
 
     // Search for symbols/companies
@@ -114,6 +116,170 @@ class StockApiService {
             }
 
             throw error;
+        }
+    }
+
+    // Get intraday data for 1D chart
+    async getIntradayData(symbol) {
+        const cacheKey = StockApiService.ENDPOINTS.INTRADAY_DATA;
+        const params = { symbol, interval: '5min' };
+
+        try {
+            // Try to get from cache first
+            const cachedData = await cacheService.get(cacheKey, params);
+            if (cachedData) {
+                return cachedData;
+            }
+
+            // Use IBM for demo API key
+            const chartSymbol = symbol === 'demo' ? 'IBM' : symbol;
+
+            console.log('Fetching intraday data from API:', chartSymbol);
+            const data = await apiClient.get({
+                function: 'TIME_SERIES_INTRADAY',
+                symbol: chartSymbol,
+                interval: '5min'
+            });
+
+            const transformedData = this.transformIntradayData(data);
+
+            // Cache the result
+            await cacheService.set(cacheKey, params, transformedData);
+            return transformedData;
+        } catch (error) {
+            console.error('Error fetching intraday data:', error);
+
+            // Try to return stale cache data if API fails
+            const staleData = await this.getStaleCache(cacheKey, params);
+            if (staleData) {
+                console.warn('Returning stale cache data for intraday data');
+                return staleData;
+            }
+
+            throw error;
+        }
+    }
+
+    // Get daily data for longer time ranges
+    async getDailyData(symbol, range = '1M') {
+        const cacheKey = StockApiService.ENDPOINTS.DAILY_DATA;
+        const params = { symbol, range };
+
+        try {
+            // Try to get from cache first
+            const cachedData = await cacheService.get(cacheKey, params);
+            if (cachedData) {
+                return cachedData;
+            }
+
+            // Use IBM for demo API key
+            const chartSymbol = symbol === 'demo' ? 'IBM' : symbol;
+
+            console.log('Fetching daily data from API:', chartSymbol, range);
+            const data = await apiClient.get({
+                function: 'TIME_SERIES_DAILY_ADJUSTED',
+                symbol: chartSymbol,
+                outputsize: 'full'
+            });
+
+            const transformedData = this.transformDailyData(data, range);
+
+            // Cache the result
+            await cacheService.set(cacheKey, params, transformedData);
+            return transformedData;
+        } catch (error) {
+            console.error('Error fetching daily data:', error);
+
+            // Try to return stale cache data if API fails
+            const staleData = await this.getStaleCache(cacheKey, params);
+            if (staleData) {
+                console.warn('Returning stale cache data for daily data');
+                return staleData;
+            }
+
+            throw error;
+        }
+    }
+
+    // Transform intraday API response to chart format
+    transformIntradayData(apiResponse) {
+        const timeSeries = apiResponse['Time Series (5min)'];
+        if (!timeSeries) {
+            console.warn('No intraday time series data found');
+            return [];
+        }
+
+        const entries = Object.entries(timeSeries);
+
+        // Sort by time ascending and take last 78 data points (6.5 hours of trading)
+        const sortedEntries = entries
+            .sort(([a], [b]) => new Date(a) - new Date(b))
+            .slice(-78);
+
+        return sortedEntries.map(([time, values]) => {
+            const timeOnly = time.split(' ')[1]; // Extract HH:MM from "YYYY-MM-DD HH:MM:SS"
+            return {
+                x: timeOnly,
+                y: parseFloat(values['4. close']) || 0,
+                timestamp: time
+            };
+        });
+    }
+
+    // Transform daily API response to chart format
+    transformDailyData(apiResponse, range) {
+        const timeSeries = apiResponse['Time Series (Daily)'];
+        if (!timeSeries) {
+            console.warn('No daily time series data found');
+            return [];
+        }
+
+        const entries = Object.entries(timeSeries);
+
+        // Sort by date ascending
+        const sortedEntries = entries.sort(([a], [b]) => new Date(a) - new Date(b));
+
+        // Filter by range
+        let filteredEntries = sortedEntries;
+        const rangeDays = this.getRangeDays(range);
+
+        if (rangeDays > 0) {
+            filteredEntries = sortedEntries.slice(-rangeDays);
+        }
+
+        return filteredEntries.map(([date, values]) => ({
+            x: this.formatDateForChart(date, range),
+            y: parseFloat(values['4. close']) || 0,
+            date: date
+        }));
+    }
+
+    // Get number of days for each range
+    getRangeDays(range) {
+        switch (range) {
+            case '1W': return 7;
+            case '1M': return 22; // ~22 trading days in a month
+            case '3M': return 66; // ~66 trading days in 3 months
+            case '1Y': return 252; // ~252 trading days in a year
+            default: return 22;
+        }
+    }
+
+    // Format date for chart display based on range
+    formatDateForChart(dateString, range) {
+        const date = new Date(dateString);
+
+        switch (range) {
+            case '1W':
+            case '1M':
+                // Show month/day for shorter ranges
+                return `${date.getMonth() + 1}/${date.getDate()}`;
+            case '3M':
+            case '1Y':
+                // Show month/year for longer ranges
+                return `${date.getMonth() + 1}/${date.getFullYear().toString().slice(-2)}`;
+            default:
+                return `${date.getMonth() + 1}/${date.getDate()}`;
         }
     }
 
@@ -254,6 +420,38 @@ class StockApiService {
             return await this.getCompanyOverview(symbol);
         } catch (error) {
             console.error('Error refreshing company overview:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Refresh cache for intraday chart data (force API call)
+     */
+    async refreshIntradayData(symbol) {
+        try {
+            // Clear existing cache for this symbol
+            await cacheService.remove(StockApiService.ENDPOINTS.INTRADAY_DATA, { symbol, interval: '5min' });
+
+            // Fetch fresh data
+            return await this.getIntradayData(symbol);
+        } catch (error) {
+            console.error('Error refreshing intraday data:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Refresh cache for daily chart data (force API call)
+     */
+    async refreshDailyData(symbol, range) {
+        try {
+            // Clear existing cache for this symbol and range
+            await cacheService.remove(StockApiService.ENDPOINTS.DAILY_DATA, { symbol, range });
+
+            // Fetch fresh data
+            return await this.getDailyData(symbol, range);
+        } catch (error) {
+            console.error('Error refreshing daily data:', error);
             throw error;
         }
     }

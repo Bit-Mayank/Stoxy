@@ -132,7 +132,7 @@ const ExploreScreen = () => {
                         />
 
                         {/* Debug component for testing cache */}
-                        <CacheDebugComponent />
+                        {/* <CacheDebugComponent /> */}
                     </>
                 )}
             </ScrollView>
