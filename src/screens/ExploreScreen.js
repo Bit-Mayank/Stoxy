@@ -82,7 +82,7 @@ const ExploreScreen = () => {
         return (
             <SafeAreaView style={styles.container}>
                 <Header
-                    title="Stocks App"
+                    title="Stoxy"
                     onSearch={handleSearch}
                     onClear={handleClearSearch}
                     placeholder="Search stocks..."
