@@ -9,7 +9,7 @@ class StockApiService {
         COMPANY_OVERVIEW: 'COMPANY_OVERVIEW',
         TOP_GAINERS_LOSERS: 'TOP_GAINERS_LOSERS',
         INTRADAY_DATA: 'TIME_SERIES_INTRADAY',
-        DAILY_DATA: 'DAILY_DATA',
+        DAILY_DATA: 'TIME_SERIES_DAILY',
     };
 
     // Search for symbols/companies
@@ -177,7 +177,7 @@ class StockApiService {
 
             console.log('Fetching daily data from API:', chartSymbol, range);
             const data = await apiClient.get({
-                function: 'TIME_SERIES_DAILY_ADJUSTED',
+                function: 'TIME_SERIES_DAILY',
                 symbol: chartSymbol,
                 outputsize: 'full'
             });
