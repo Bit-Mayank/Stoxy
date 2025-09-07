@@ -22,12 +22,6 @@ A professional, theme-aware stock market app built with Expo (React Native) feat
 
 ---
 
-## 📱 Screenshots
-
-> _Add screenshots of the app here_
-
----
-
 ## 🛠️ Getting Started
 
 ### 1. **Clone the Repository**
