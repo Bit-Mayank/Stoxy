@@ -1,20 +1,36 @@
-import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View } from 'react-native';
+import React, { useEffect } from 'react';
+import { AppState } from 'react-native';
+import Navigator from './src/navigation/Navigator';
+import { UserPreferences } from './src/context/UserPreferences';
+import { WatchlistProvider } from './src/context/WatchlistContext';
+import AppInitializationService from './src/services/AppInitializationService';
 
 export default function App() {
+  useEffect(() => {
+    // Initialize app services on startup
+    AppInitializationService.initialize();
+
+    // Handle app state changes for cache management
+    const handleAppStateChange = (nextAppState) => {
+      if (nextAppState === 'background') {
+        AppInitializationService.handleAppBackground();
+      } else if (nextAppState === 'active') {
+        AppInitializationService.handleAppForeground();
+      }
+    };
+
+    const subscription = AppState.addEventListener('change', handleAppStateChange);
+
+    return () => {
+      subscription?.remove();
+    };
+  }, []);
+
   return (
-    <View style={styles.container}>
-      <Text>Open up App.js to start working on your app!</Text>
-      <StatusBar style="auto" />
-    </View>
+    <UserPreferences>
+      <WatchlistProvider>
+        <Navigator />
+      </WatchlistProvider>
+    </UserPreferences>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-});
